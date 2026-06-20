@@ -1,0 +1,19 @@
+{
+  "name": "life-level",
+  "version": "0.1.4",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "node dev-server.mjs",
+    "start": "node dev-server.mjs",
+    "db:init": "node scripts/init-db.mjs"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.0.5",
+    "@libsql/client": "^0.17.4",
+    "hono": "^4.12.25"
+  },
+  "devDependencies": {
+    "tsx": "^4.22.4"
+  }
+}

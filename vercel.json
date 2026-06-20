@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "echo 'no build needed'",
+  "outputDirectory": "public",
+  "rewrites": [
+    { "source": "/static/(.*)", "destination": "/static/$1" },
+    { "source": "/sw.js", "destination": "/sw.js" },
+    { "source": "/favicon.ico", "destination": "/static/icon.svg" },
+    { "source": "/((?!static/|sw.js|favicon.ico).*)", "destination": "/api" }
+  ]
+}
