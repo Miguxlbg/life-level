@@ -4,6 +4,7 @@
 // Requer GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e
 // GOOGLE_REDIRECT_URI nas variáveis de ambiente.
 // ===================================================
+import type { Database } from './types'
 import { Context } from 'hono'
 import { createSession, setSessionCookie } from './auth'
 import { getPlayer } from './db'
@@ -51,7 +52,7 @@ export async function startGoogleOAuth(c: Context) {
 
 // Passo 2: callback do Google -> troca code por token -> cria/loga jogador
 export async function handleGoogleCallback(c: Context) {
-  const db = c.env.DB as D1Database
+  const db = c.env.DB as Database
   const code = c.req.query('code')
   const { clientId, clientSecret, redirectUri } = getGoogleConfig(c)
   if (!code || !clientId || !clientSecret) {

@@ -16,15 +16,33 @@ import {
 import { ProceduralEngine, generateInsight, getInitialAttributesFromAssessment, detectCritical, PlayerCtx } from './procedural/engine'
 import { checkDeathConditions, processDeath } from './lib/death'
 import { renderApp } from './app-html'
+import type { Database } from './lib/types'
 
-type Bindings = { DB: D1Database; ANTHROPIC_API_KEY?: string }
+type Bindings = { DB: Database; ANTHROPIC_API_KEY?: string }
 export const app = new Hono<{ Bindings: Bindings; Variables: { playerId: string } }>()
 
-// Injeta o banco Turso (libSQL) como c.env.DB quando rodando fora do
-// Cloudflare (ex: Vercel/Node). No Cloudflare o binding nativo já existe
-// e este middleware é no-op. Registrado PRIMEIRO para valer em todas as rotas.
+// Tratador global de erros: em vez de devolver um 500 "cego"
+// (FUNCTION_INVOCATION_FAILED na Vercel), loga a causa e responde
+// uma mensagem legível. Aparece nos logs da Vercel (Deployments > Logs).
+app.onError((err, c) => {
+  console.error('[LIFE LEVEL] Erro na requisição:', err?.stack || err)
+  const isApi = c.req.path.startsWith('/api/')
+  if (isApi) {
+    return c.json({ ok: false, error: 'internal_error', message: String((err as any)?.message || err) }, 500)
+  }
+  return c.html(
+    `<!doctype html><meta charset="utf-8"><body style="font-family:sans-serif;background:#0b0b12;color:#eee;padding:40px">` +
+    `<h1>⚠️ Erro interno</h1><p>Algo falhou no servidor. Verifique as variáveis de ambiente <code>TURSO_DATABASE_URL</code> e <code>TURSO_AUTH_TOKEN</code> na Vercel.</p>` +
+    `<pre style="white-space:pre-wrap;color:#f88">${String((err as any)?.message || err)}</pre></body>`,
+    500
+  )
+})
+
+// Injeta o banco Turso (libSQL) como c.env.DB em toda requisição.
+// Lê TURSO_DATABASE_URL / TURSO_AUTH_TOKEN das variáveis de ambiente
+// (Vercel) ou do .env local. Registrado PRIMEIRO para valer em todas as rotas.
 app.use('*', async (c, next) => {
-  // Detecta ausência de binding nativo (Cloudflare injeta c.env.DB).
+  // Se já houver um DB injetado (ex.: testes), não recria.
   const hasNativeDb = c.env && (c.env as any).DB
   if (!hasNativeDb && typeof process !== 'undefined' && process.env?.TURSO_DATABASE_URL) {
     const { getDb } = await import('./lib/d1-adapter')
@@ -698,7 +716,7 @@ app.post('/api/death/simulate', async (c) => {
 })
 
 // ============ Mission generation helper ============
-async function generateMissionsForPlayer(db: D1Database, player: any, force = false) {
+async function generateMissionsForPlayer(db: Database, player: any, force = false) {
   // skip if active daily missions exist today and not forced
   if (!force) {
     const existing = await db.prepare(`SELECT COUNT(*) as c FROM missions WHERE player_id = ? AND type = 'daily' AND status = 'active' AND date(created_at) = date('now')`).bind(player.id).first<any>()
@@ -735,7 +753,7 @@ async function generateMissionsForPlayer(db: D1Database, player: any, force = fa
 }
 
 // Atualiza streak de dias consecutivos de login
-async function applyDailyStreak(db: D1Database, player: any) {
+async function applyDailyStreak(db: Database, player: any) {
   const today = todayStr()
   const last = player.last_streak_date
   if (last === today) return // já contou hoje
@@ -756,7 +774,7 @@ function endOfWeek(): string {
 }
 
 // ============ FRONTEND (SPA) ============
-// O catch-all e o serveStatic são definidos pelos entrypoints de cada
-// plataforma (entry-cloudflare.tsx / entry-vercel.ts) para manter este
-// módulo portável. A rota raiz do SPA fica aqui como fallback.
+// O catch-all e o serveStatic são definidos pelo entrypoint da Vercel
+// (api/index.ts) e pelo servidor de desenvolvimento (dev-server.mjs),
+// para manter este módulo portável. A rota raiz fica nesses arquivos.
 export { renderApp }

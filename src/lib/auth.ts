@@ -1,11 +1,12 @@
 // ===================================================
-// LIFE LEVEL — Session-based auth (D1 backed)
+// LIFE LEVEL — Autenticação por sessão (Turso/libSQL)
 // ===================================================
+import type { Database } from './types'
 import { Context } from 'hono'
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
 
 export interface Env {
-  DB: D1Database
+  DB: Database
   ANTHROPIC_API_KEY?: string
 }
 
@@ -49,7 +50,7 @@ export async function verifyPassword(password: string, stored: string): Promise<
   } catch { return false }
 }
 
-export async function createSession(db: D1Database, playerId: string): Promise<string> {
+export async function createSession(db: Database, playerId: string): Promise<string> {
   const token = crypto.randomUUID() + crypto.randomUUID().replace(/-/g, '')
   const expires = new Date(Date.now() + SESSION_DAYS * 86400000).toISOString()
   await db.prepare('INSERT INTO sessions (token, player_id, expires_at) VALUES (?, ?, ?)')
@@ -70,7 +71,7 @@ export function setSessionCookie(c: Context, token: string) {
 export async function getPlayerId(c: Context): Promise<string | null> {
   const token = getCookie(c, SESSION_COOKIE)
   if (!token) return null
-  const db = c.env.DB as D1Database
+  const db = c.env.DB as Database
   const row = await db.prepare('SELECT player_id, expires_at FROM sessions WHERE token = ?').bind(token).first<any>()
   if (!row) return null
   if (new Date(row.expires_at) < new Date()) {
@@ -83,7 +84,7 @@ export async function getPlayerId(c: Context): Promise<string | null> {
 export async function clearSession(c: Context) {
   const token = getCookie(c, SESSION_COOKIE)
   if (token) {
-    await (c.env.DB as D1Database).prepare('DELETE FROM sessions WHERE token = ?').bind(token).run()
+    await (c.env.DB as Database).prepare('DELETE FROM sessions WHERE token = ?').bind(token).run()
   }
   deleteCookie(c, SESSION_COOKIE, { path: '/' })
 }

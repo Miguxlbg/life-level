@@ -1,22 +1,23 @@
 // ===================================================
-// LIFE LEVEL — D1 query helpers
+// LIFE LEVEL — Helpers de consulta ao banco (Turso/libSQL)
 // ===================================================
+import type { Database } from './types'
 import { ATTRIBUTE_KEYS, calculateXpToNext, getTitleForLevel, getClassForLevel, overallScore, todayStr } from './game'
 
-export async function getPlayer(db: D1Database, id: string): Promise<any> {
+export async function getPlayer(db: Database, id: string): Promise<any> {
   return await db.prepare('SELECT * FROM players WHERE id = ?').bind(id).first()
 }
 
-export async function getPlayerByNick(db: D1Database, nick: string): Promise<any> {
+export async function getPlayerByNick(db: Database, nick: string): Promise<any> {
   return await db.prepare('SELECT * FROM players WHERE nick = ? COLLATE NOCASE').bind(nick).first()
 }
 
-export async function getAttributes(db: D1Database, playerId: string): Promise<any[]> {
+export async function getAttributes(db: Database, playerId: string): Promise<any[]> {
   const { results } = await db.prepare('SELECT * FROM player_attributes WHERE player_id = ?').bind(playerId).all()
   return results || []
 }
 
-export async function getAttributeMap(db: D1Database, playerId: string): Promise<Record<string, number>> {
+export async function getAttributeMap(db: Database, playerId: string): Promise<Record<string, number>> {
   const attrs = await getAttributes(db, playerId)
   const map: Record<string, number> = {}
   for (const a of attrs) map[a.attribute_key] = a.value
@@ -24,7 +25,7 @@ export async function getAttributeMap(db: D1Database, playerId: string): Promise
   return map
 }
 
-export async function initAttributes(db: D1Database, playerId: string, base: Record<string, number>) {
+export async function initAttributes(db: Database, playerId: string, base: Record<string, number>) {
   for (const key of ATTRIBUTE_KEYS) {
     const val = base[key] ?? 30
     await db.prepare(`INSERT INTO player_attributes (id, player_id, attribute_key, value, base_value, max_value)
@@ -34,7 +35,7 @@ export async function initAttributes(db: D1Database, playerId: string, base: Rec
   }
 }
 
-export async function addAttributeGains(db: D1Database, playerId: string, gains: Record<string, number>) {
+export async function addAttributeGains(db: Database, playerId: string, gains: Record<string, number>) {
   for (const [key, amount] of Object.entries(gains)) {
     if (!ATTRIBUTE_KEYS.includes(key as any)) continue
     await db.prepare(`UPDATE player_attributes
@@ -45,7 +46,7 @@ export async function addAttributeGains(db: D1Database, playerId: string, gains:
 }
 
 // Add XP, handle level-up. Returns level-up info if leveled.
-export async function addXpAndCoins(db: D1Database, player: any, xp: number, coins: number): Promise<{
+export async function addXpAndCoins(db: Database, player: any, xp: number, coins: number): Promise<{
   leveledUp: boolean; newLevel?: number; newTitle?: string; bonusCoins?: number
 }> {
   let curLevel = player.level
@@ -81,7 +82,7 @@ export async function addXpAndCoins(db: D1Database, player: any, xp: number, coi
 }
 
 // Progresso de skills: cada skill ganha XP; 100 XP = +1 nível de skill
-export async function addSkillGains(db: D1Database, playerId: string, gains: Record<string, number>) {
+export async function addSkillGains(db: Database, playerId: string, gains: Record<string, number>) {
   for (const [cat, amount] of Object.entries(gains)) {
     if (!amount) continue
     const existing = await db.prepare('SELECT * FROM player_skills WHERE player_id = ? AND skill_category = ?').bind(playerId, cat).first<any>()
@@ -101,13 +102,13 @@ export async function addSkillGains(db: D1Database, playerId: string, gains: Rec
   }
 }
 
-export async function createNotification(db: D1Database, playerId: string, type: string, title: string, message: string) {
+export async function createNotification(db: Database, playerId: string, type: string, title: string, message: string) {
   await db.prepare('INSERT INTO notifications (id, player_id, type, title, message) VALUES (?, ?, ?, ?, ?)')
     .bind(crypto.randomUUID(), playerId, type, title, message).run()
 }
 
 // Upsert today's snapshot
-export async function upsertSnapshot(db: D1Database, player: any, attrs: Record<string, number>, notableEvent?: string, notableLabel?: string) {
+export async function upsertSnapshot(db: Database, player: any, attrs: Record<string, number>, notableEvent?: string, notableLabel?: string) {
   const date = todayStr()
   const score = overallScore(attrs)
   const existing = await db.prepare('SELECT id, missions_completed_today FROM player_daily_snapshots WHERE player_id = ? AND snapshot_date = ?')
@@ -125,7 +126,7 @@ export async function upsertSnapshot(db: D1Database, player: any, attrs: Record<
   }
 }
 
-export async function incrementSnapshotMissions(db: D1Database, playerId: string) {
+export async function incrementSnapshotMissions(db: Database, playerId: string) {
   const date = todayStr()
   await db.prepare(`UPDATE player_daily_snapshots SET missions_completed_today = missions_completed_today + 1 WHERE player_id = ? AND snapshot_date = ?`)
     .bind(playerId, date).run()

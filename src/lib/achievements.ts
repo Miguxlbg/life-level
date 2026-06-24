@@ -1,6 +1,7 @@
 // ===================================================
 // LIFE LEVEL — Sistema de Conquistas (badges)
 // ===================================================
+import type { Database } from './types'
 
 export interface Achievement {
   key: string
@@ -39,7 +40,7 @@ export const RARITY_META: Record<string, { color: string; label: string }> = {
 }
 
 // Verifica e desbloqueia conquistas com base no estado atual. Retorna as novas desbloqueadas.
-export async function checkAchievements(db: D1Database, playerId: string): Promise<Achievement[]> {
+export async function checkAchievements(db: Database, playerId: string): Promise<Achievement[]> {
   const player = await db.prepare('SELECT * FROM players WHERE id = ?').bind(playerId).first<any>()
   if (!player) return []
 

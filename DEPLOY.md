@@ -104,8 +104,8 @@ git push -u origin main
 1. Entre em **https://vercel.com** e faça login (pode usar o GitHub).
 2. Clique em **"Add New..." → "Project"**.
 3. Selecione o repositório `life-level` que você subiu.
-4. Em **"Framework Preset"**, deixe **"Other"** (o `vercel.json` já cuida de tudo).
-5. **NÃO** mude Build Command nem Output (o `vercel.json` define).
+4. Em **"Framework Preset"**, deixe **"Other"**.
+5. **Deixe Build Command, Output Directory e Install Command VAZIOS / no padrão.** A Vercel detecta `api/index.ts` automaticamente como função serverless e serve a pasta `public/` como estática. ⚠️ Se você já tinha publicado antes com "Output Directory: public" ou "Build Command: echo no build", **apague esses valores** (veja a seção 9, erro `FUNCTION_INVOCATION_FAILED`).
 6. Antes de clicar em Deploy, vá em **"Environment Variables"** e adicione as do **Passo D**.
 7. Clique em **"Deploy"** e aguarde (~1 min).
 8. Pronto! Você recebe uma URL tipo `https://life-level-xxxx.vercel.app`.
@@ -217,15 +217,30 @@ TURSO_AUTH_TOKEN=seu_token_novo
 
 ### ❌ `404 NOT_FOUND` na Vercel ao abrir o site
 **Causas comuns e soluções:**
-1. **Faltou o `vercel.json`** — confirme que ele está na raiz do projeto (ele redireciona tudo para `/api`).
+1. **Faltou o `vercel.json`** — confirme que ele está na raiz do projeto (ele redireciona tudo para `/api/index`).
 2. **A pasta `api/` não foi enviada** — confirme que `api/index.ts` está no repositório.
-3. **Output errado** — não mude o "Output Directory" na Vercel; o `vercel.json` já define `public`.
 
-### ❌ `500 Internal Server Error` / `FUNCTION_INVOCATION_FAILED`
-**Quase sempre é variável de ambiente faltando.**
-1. Confirme `TURSO_DATABASE_URL` e `TURSO_AUTH_TOKEN` em Settings → Environment Variables.
-2. **Faça Redeploy** depois de adicionar (a Vercel não relê variáveis sem novo build).
-3. Veja o log: Vercel → Deployments → clique no deploy → **"Functions" / "Logs"**. Se aparecer `TURSO_DATABASE_URL não configurada`, é isso.
+### ❌ `500 Internal Server Error` / `FUNCTION_INVOCATION_FAILED` (O ERRO DA IMAGEM)
+Esse foi exatamente o erro que você viu. Ele tem **3 causas possíveis**, e a versão nova do projeto **já corrige todas**:
+
+**1. Configuração de build "presa" no painel da Vercel (causa nº 1 no seu caso).**
+Quando você publicou da primeira vez, a Vercel salvou `Build Command: echo 'no build needed'` e `Output Directory: public`. Isso faz a Vercel tratar o projeto como **site estático** e a função `api/index.ts` quebra. **Como resolver:**
+   - Vercel → seu projeto → **Settings → Build & Development Settings**
+   - **Framework Preset:** `Other`
+   - **Build Command:** clique em **Override** e deixe **VAZIO** (ou desligue o Override)
+   - **Output Directory:** clique em **Override** e deixe **VAZIO** (apague `public`)
+   - **Install Command:** padrão (`npm install`)
+   - Salve → vá em **Deployments → ... → Redeploy** (desmarque "use existing build cache").
+
+**2. Variáveis de ambiente faltando ou sem redeploy.**
+   - Confirme `TURSO_DATABASE_URL` e `TURSO_AUTH_TOKEN` em Settings → Environment Variables (nos 3 ambientes).
+   - **Faça Redeploy** depois de adicionar (a Vercel não relê variáveis sem novo build).
+
+**3. Código antigo (`src/index.tsx`, `tsconfig` com `vite/client`, `runtime:'nodejs'`).**
+   - A versão nova renomeou `index.tsx → index.ts`, limpou o `tsconfig.json`, removeu o `runtime` inválido do `api/index.ts` e adicionou um tratador de erros que mostra a causa real no log.
+   - **Garanta que o seu GitHub está com a versão nova** (veja a seção "Como atualizar o repositório" no final).
+
+**Para ver o erro real:** Vercel → Deployments → clique no deploy → **Logs / Functions**. Agora, com o tratador de erros novo, vai aparecer a mensagem exata (ex.: `TURSO_DATABASE_URL não configurada`) em vez de um 500 cego.
 
 ### ❌ `TURSO_DATABASE_URL não configurada`
 A variável não chegou na função. Adicione-a (Passo D) e **redeploy**.
@@ -249,6 +264,48 @@ O Service Worker faz cache. Solução: feche e reabra o app, ou no Chrome → Co
 
 ### ❌ `Module not found` / erro de build na Vercel
 Confirme que `package.json` lista `hono`, `@libsql/client` e `@hono/node-server`. Rode `npm install` localmente e faça commit do `package-lock.json`.
+
+### ❌ `TypeError [ERR_UNKNOWN_FILE_EXTENSION]: Unknown file extension ".tsx"` ao rodar `npm run dev` (LOCAL)
+Esse erro acontece porque o Node novo (v20+) não sabe ler arquivos TypeScript sozinho. **A versão nova já corrige**, de duas formas:
+1. O `package.json` agora usa `node --import tsx dev-server.mjs` (o `tsx` ensina o Node a ler `.ts`).
+2. O arquivo problemático foi renomeado de `index.tsx` para `index.ts`.
+
+**Se mesmo assim der erro**, instale as dependências de novo e rode:
+```bash
+npm install
+npm run dev
+```
+Se você está com a pasta antiga baixada, **baixe o pacote novo** ou atualize pelo Git (seção abaixo).
+
+---
+
+## 🔄 Como atualizar o repositório que já está no GitHub/Vercel
+
+Se você **já tinha subido a versão antiga** (com `src/index.tsx`), faça assim para aplicar as correções:
+
+### Opção A — Baixar o pacote novo e substituir (mais simples)
+1. Baixe o `.zip` novo (link que te enviei no chat).
+2. Apague a pasta antiga do projeto no seu PC (ou renomeie).
+3. Extraia o `.zip` novo no lugar.
+4. No terminal, dentro da pasta nova:
+```bash
+npm install
+git add -A
+git commit -m "Corrige Vercel 500 + erro .tsx local (migracao Turso)"
+git push
+```
+5. A Vercel detecta o push e redeploya sozinha. **Depois confira as configs de build** (seção 9, erro `FUNCTION_INVOCATION_FAILED`, passo 1).
+
+### Opção B — Atualizar pelo Git (se você sabe usar Git)
+Dentro da pasta do projeto novo (a que extraiu):
+```bash
+git remote set-url origin https://github.com/SEU_USUARIO/life-level.git
+git add -A
+git commit -m "Corrige Vercel 500 + erro .tsx local"
+git push -f origin main   # -f sobrescreve o conteudo antigo
+```
+
+> ⚠️ Depois do push, **vá na Vercel e limpe as configs de build presas** (Settings → Build & Development → deixe Build Command e Output Directory vazios) e faça **Redeploy sem cache**. Sem isso, o erro 500 pode continuar mesmo com o código novo.
 
 ---
 

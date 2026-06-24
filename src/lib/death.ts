@@ -1,6 +1,7 @@
 // ===================================================
 // LIFE LEVEL — Death & Reset system
 // ===================================================
+import type { Database } from './types'
 import { getAttributeMap, createNotification } from './db'
 
 export interface DeathCheck {
@@ -9,7 +10,7 @@ export interface DeathCheck {
   daysOffline?: number
 }
 
-export async function checkDeathConditions(db: D1Database, player: any): Promise<DeathCheck> {
+export async function checkDeathConditions(db: Database, player: any): Promise<DeathCheck> {
   const lastLogin = new Date(player.last_login_at).getTime()
   const hoursOffline = (Date.now() - lastLogin) / 3600000
   const daysOffline = Math.floor(hoursOffline / 24)
@@ -38,7 +39,7 @@ const CAUSE_LABELS: Record<string, string> = {
   mental_collapse: 'Colapso Mental',
 }
 
-export async function processDeath(db: D1Database, player: any, cause: string, daysOffline: number) {
+export async function processDeath(db: Database, player: any, cause: string, daysOffline: number) {
   const attrs = await getAttributeMap(db, player.id)
   // Snapshot
   await db.prepare(`INSERT INTO death_log (id, player_id, cause, stats_at_death, days_offline, level_at_death) VALUES (?,?,?,?,?,?)`)

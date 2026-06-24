@@ -36,7 +36,7 @@ if (!process.env.TURSO_DATABASE_URL) {
 
 const { serve } = await import('@hono/node-server')
 const { serveStatic } = await import('@hono/node-server/serve-static')
-const { app, renderApp } = await import('./src/index.tsx')
+const { app, renderApp } = await import('./src/index.ts')
 
 // Servir arquivos estáticos (como a Vercel faz com /public)
 app.get('/static/*', serveStatic({ root: './public' }))

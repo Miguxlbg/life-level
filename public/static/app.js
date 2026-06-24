@@ -37,7 +37,7 @@ const State = {
 // ---------- Versão & Changelog ----------
 const APP_VERSION = 'beta v0.1.4'
 // Link para baixar o código-fonte completo do projeto (.zip)
-const DOWNLOAD_URL = 'https://www.genspark.ai/api/files/s/ZBXjXw6P'
+const DOWNLOAD_URL = 'https://www.genspark.ai/api/files/s/vgFy0QWE'
 // Captura o evento de instalação do PWA para o botão "Instalar app"
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault()
